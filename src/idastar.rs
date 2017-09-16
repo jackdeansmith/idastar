@@ -19,8 +19,23 @@ pub trait Admissable{
     fn heuristic(&self) -> u64;
 }
 
-fn search<T:Solvable + Searchable + Admissable>(state: T, cost_limit: u64) 
+//Subtract unsigned numbers without wraping around past 0
+fn saturate_subtract(lhs: u64, rhs: u64) -> u64{
+    if(lhs > rhs){
+        lhs - rhs
+    }
+    else{
+        0
+    }
+}
+
+pub fn search<T:Solvable + Searchable + Admissable>(state: T, cost_limit: u64) 
 -> Option<Vec<T::Transition>>{
+
+    //If our state is the solution, we are set, return an empty vector.
+    if state.is_goal(){
+        return Some(Vec::new());
+    }
 
     //The base case, if the cost limit is 0, we can't do anyting
     if cost_limit == 0{
@@ -30,7 +45,19 @@ fn search<T:Solvable + Searchable + Admissable>(state: T, cost_limit: u64)
     //Otherwise, we need to look recursively into the successors
     for (next_state, next_transition) in state.successors(){
 
+        //Compute the new cost limit, being safe to keep this from wrapping around
+        let mut next_cost_limit = saturate_subtract(cost_limit, 1);
+        next_cost_limit = saturate_subtract(next_cost_limit, 
+                                            next_state.heuristic());
+
+        //If any of our successors succeded in finding the goal, we are good!
+        if let Some(mut transition_vec) = search(next_state, next_cost_limit){
+            transition_vec.push(next_transition);
+            return Some(transition_vec);
+        }
     }
 
+    //Finally, if we searched everything we could and still couldn't find a
+    //an acceptable solution, we return none.
     None
 }
